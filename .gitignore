@@ -1,0 +1,5 @@
+# Project exclude paths
+/target/
+/lab3.iml
+/.idea/
+/.jython_cache/
