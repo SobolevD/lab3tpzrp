@@ -1,6 +1,7 @@
 package com.ssau.tpzrp;
 
 
+import com.ssau.tpzrp.constants.TorrentTrackerProtocols;
 import com.ssau.tpzrp.exceptions.TorrentParseException;
 import com.ssau.tpzrp.model.TorrentFile;
 import com.ssau.tpzrp.utils.Bencode;
@@ -11,14 +12,15 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.Set;
+
+import static com.ssau.tpzrp.constants.Common.TORRENT_EXAMPLE_FILE_PATH;
 
 public class Main {
     public static void main(String[] args) throws TorrentParseException, IOException {
 
-        String fileName = "C:\\Users\\soboi\\Downloads\\IntelliJ-IDEA-Ultimate-2022.2.torrent";
-
-        TorrentFile torrentFile = new TorrentFile(fileName);
-
-        TorrentHelper.getPeers(torrentFile);
+        Set<String> acceptableProtocols = Set.of(TorrentTrackerProtocols.HTTP);
+        TorrentFile torrentFile = new TorrentFile(TORRENT_EXAMPLE_FILE_PATH, acceptableProtocols);
     }
 }

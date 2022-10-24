@@ -1,8 +1,10 @@
 package com.ssau.tpzrp.model;
 
+import com.ssau.tpzrp.constants.TorrentFields;
 import com.ssau.tpzrp.exceptions.TorrentParseException;
 import com.ssau.tpzrp.utils.Bencode;
 import com.ssau.tpzrp.utils.CommandRunner;
+import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,19 +13,20 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import static com.ssau.tpzrp.constants.Common.HASH_ENCODER_PYTHON_SCRIPT_FILE_PATH;
+
+@Data
 public class TorrentFile {
 
-    private final String announceUrl;
-    private final List<String> announcesUrls;
-    private final String comment;
-    private final String createdBy;
-    private final String encoding;
-    private final String infoHash;
-
-    private final Map<String, Object> info;
+    private String announceUrl;
+    private List<String> announcesUrls;
+    private String comment;
+    private String createdBy;
+    private String encoding;
+    private String infoHash;
+    private Map<String, Object> info;
 
     private static final Logger logger = LoggerFactory.getLogger(TorrentFile.class);
 
@@ -36,19 +39,13 @@ public class TorrentFile {
             Object parsedFile = Bencode.parse(fileInputStream);
 
             Map<String, Object> parsedFileMap = (Map<String, Object>)parsedFile;
+            parseParameters(parsedFileMap);
 
-            this.announceUrl = parsedFileMap.get("announce").toString();
-            this.announcesUrls = (List)parsedFileMap.get("announce-list");
-            this.comment = parsedFileMap.get("comment").toString();
-            this.createdBy = parsedFileMap.get("created by").toString();
-            this.encoding = parsedFileMap.get("encoding").toString();
-            this.info = (Map<String, Object>)parsedFileMap.get("info");
-
-            String pythonInfoHashProviderPath = "src/main/resources/python/get_info_hash.py";
-            String command = String.format("python %s %s", pythonInfoHashProviderPath, filePath);
+            String command = String.format("python %s %s", HASH_ENCODER_PYTHON_SCRIPT_FILE_PATH, filePath);
             List<String> output = CommandRunner.runWithReturn(command);
 
             this.infoHash = output.get(0);
+
         } catch (IOException e) {
             String errorMessage = String.format("Could not find file by path %s", path);
             logger.error(errorMessage, e);
@@ -58,31 +55,25 @@ public class TorrentFile {
             logger.error(errorMessage, e);
             throw new TorrentParseException(errorMessage, e);
         }
-
     }
 
-    public String getAnnounceUrl() {
-        return announceUrl;
-    }
-
-    public List<String> getAnnouncesUrls() {
-        return announcesUrls;
-    }
-
-    public String getComment() {
-        return comment;
-    }
-
-    public String getCreatedBy() {
-        return createdBy;
-    }
-
-    public String getEncoding() {
-        return encoding;
-    }
-
-    public String getInfoHash() {
-        return infoHash;
+    public TorrentFile(String filePath, Set<String> acceptableProtocols) throws TorrentParseException {
+        this(filePath);
+        List<String> acceptableTrackerUrls = new ArrayList<>();
+        for (String trackerUrl : this.announcesUrls) {
+            for (String acceptableProtocol : acceptableProtocols) {
+                if (trackerUrl.startsWith(acceptableProtocol)) {
+                    acceptableTrackerUrls.add(trackerUrl);
+                    break;
+                }
+            }
+        }
+        if (acceptableTrackerUrls.isEmpty()) {
+            String errorMessage = "Torrent file has announces urls only with unacceptable protocols";
+            logger.error(errorMessage);
+            throw new TorrentParseException(errorMessage);
+        }
+        this.announcesUrls = acceptableTrackerUrls;
     }
 
     public String getInfoHashForRequest() {
@@ -102,7 +93,35 @@ public class TorrentFile {
         return builder.toString();
     }
 
-    public Map<String, Object> getInfo() {
-        return info;
+    @SuppressWarnings("unchecked")
+    private void parseParameters(Map<String, Object> map) throws TorrentParseException {
+
+        Object announceUrl = map.get(TorrentFields.ANNOUNCE);
+        this.announceUrl = Objects.isNull(announceUrl) ? null : announceUrl.toString();
+
+        Object announcesLists = map.get(TorrentFields.ANNOUNCE_LIST);
+        if (Objects.nonNull(announcesLists)) {
+            this.announcesUrls = new ArrayList<>();
+            for (List<String> announcesList : (List<List<String>>)announcesLists) {
+                this.announcesUrls.addAll(announcesList);
+            }
+        }
+
+        Object comment = map.get(TorrentFields.COMMENT);
+        this.comment = Objects.isNull(comment) ? null : comment.toString();
+
+        Object createdBy = map.get(TorrentFields.CREATED_BY);
+        this.createdBy = Objects.isNull(createdBy) ? null : createdBy.toString();
+
+        Object encoding = map.get(TorrentFields.ENCODING);
+        this.encoding = Objects.isNull(encoding) ? null : encoding.toString();
+
+        Object info = map.get(TorrentFields.INFO);
+        if (Objects.isNull(info)) {
+            String errorMessage = "Could not parse INFO block of torrent file";
+            logger.error(errorMessage);
+            throw new TorrentParseException(errorMessage);
+        }
+        this.info = (Map<String, Object>)info;
     }
 }
