@@ -5,8 +5,6 @@ import com.ssau.tpzrp.exceptions.TorrentParseException;
 import com.ssau.tpzrp.utils.Bencode;
 import com.ssau.tpzrp.utils.CommandRunner;
 import lombok.Data;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,8 +26,6 @@ public class TorrentFile {
     private String infoHash;
     private Map<String, Object> info;
 
-    private static final Logger logger = LoggerFactory.getLogger(TorrentFile.class);
-
     @SuppressWarnings("unchecked")
     public TorrentFile(String filePath) throws TorrentParseException {
         Path path = Paths.get(filePath);
@@ -48,11 +44,11 @@ public class TorrentFile {
 
         } catch (IOException e) {
             String errorMessage = String.format("Could not find file by path %s", path);
-            logger.error(errorMessage, e);
+            System.out.println("[ERROR] " + errorMessage);
             throw new TorrentParseException(errorMessage, e);
         } catch (ClassCastException e) {
             String errorMessage = String.format("Something wrong during torrent file decoding. File: %s", path);
-            logger.error(errorMessage, e);
+            System.out.println("[ERROR] " + errorMessage);
             throw new TorrentParseException(errorMessage, e);
         }
     }
@@ -70,28 +66,13 @@ public class TorrentFile {
         }
         if (acceptableTrackerUrls.isEmpty()) {
             String errorMessage = "Torrent file has announces urls only with unacceptable protocols";
-            logger.error(errorMessage);
+            System.out.println("[ERROR] " + errorMessage);
             throw new TorrentParseException(errorMessage);
         }
         this.announcesUrls = acceptableTrackerUrls;
     }
 
-    public String getInfoHashForRequest() {
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < infoHash.length(); ++i) {
-            for (int j = 0; j < 2; ++j, ++i) {
-                if (i == infoHash.length()) {
-                    break;
-                }
-                if (j == 0) {
-                    builder.append('%');
-                }
-                builder.append(infoHash.charAt(i));
-            }
-            --i;
-        }
-        return builder.toString();
-    }
+
 
     @SuppressWarnings("unchecked")
     private void parseParameters(Map<String, Object> map) throws TorrentParseException {
@@ -119,7 +100,7 @@ public class TorrentFile {
         Object info = map.get(TorrentFields.INFO);
         if (Objects.isNull(info)) {
             String errorMessage = "Could not parse INFO block of torrent file";
-            logger.error(errorMessage);
+            System.out.println("[ERROR] " + errorMessage);
             throw new TorrentParseException(errorMessage);
         }
         this.info = (Map<String, Object>)info;

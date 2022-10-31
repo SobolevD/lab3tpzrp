@@ -18,9 +18,11 @@ import java.util.Set;
 import static com.ssau.tpzrp.constants.Common.TORRENT_EXAMPLE_FILE_PATH;
 
 public class Main {
-    public static void main(String[] args) throws TorrentParseException, IOException {
+    public static void main(String[] args) throws TorrentParseException, IOException, InterruptedException {
 
         Set<String> acceptableProtocols = Set.of(TorrentTrackerProtocols.HTTP);
         TorrentFile torrentFile = new TorrentFile(TORRENT_EXAMPLE_FILE_PATH, acceptableProtocols);
+
+        TorrentHelper.getPeers(torrentFile);
     }
 }
