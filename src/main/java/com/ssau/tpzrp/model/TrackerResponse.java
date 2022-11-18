@@ -1,6 +1,7 @@
 package com.ssau.tpzrp.model;
 
 import com.ssau.tpzrp.constants.TrackerResponseFields;
+import com.ssau.tpzrp.exceptions.PeersParseException;
 import com.ssau.tpzrp.utils.Bencode;
 import com.ssau.tpzrp.utils.CommandRunner;
 import lombok.Data;
@@ -24,13 +25,13 @@ public class TrackerResponse {
     private Long minInterval;
     private List<Peer> peers;
 
-    public static TrackerResponse valueOf(byte[] trackerResponse) throws IOException {
+    public static TrackerResponse valueOf(byte[] trackerResponse) throws IOException, PeersParseException {
 
         TrackerResponse response = new TrackerResponse();
 
         InputStream stream = new ByteArrayInputStream(trackerResponse);
         Object trackerResponseObj = Bencode.parse(stream);
-        Map<String, Object> trackerResponseMap = (Map<String, Object>)trackerResponseObj;
+        Map<String, Object> trackerResponseMap = (Map<String, Object>) trackerResponseObj;
         parseParameters(response, trackerResponseMap);
         parsePeers(response, trackerResponse);
         return response;
@@ -63,23 +64,39 @@ public class TrackerResponse {
         System.out.println(trackerResponse.getPeers());
     }
 
-    private static void parsePeers(TrackerResponse trackerResponse, byte[] responseBytes) throws IOException {
+    private static void parsePeers(TrackerResponse trackerResponse, byte[] responseBytes) throws IOException, PeersParseException {
 
         Files.write(Path.of(TMP_FILE_WITH_TRACKER_RESPONSE), responseBytes);
 
         String command = String.format("python %s %s", GET_PEERS_PYTHON_SCRIPT_FILE_PATH, TMP_FILE_WITH_TRACKER_RESPONSE);
         List<String> output = CommandRunner.runWithReturn(command);
 
+        for (String outputStr : output) {
+            if (outputStr.contains("Traceback")) {
+                throw new PeersParseException("Something wrong during python script execution");
+            }
+        }
+
         String[] peers = output.get(0).split(";");
+
         System.out.println("[DEBUG] Peers: " + Arrays.toString(peers));
         List<Peer> peersAddresses = new ArrayList<>();
 
         for (String peer : peers) {
+
+            if (!peer.contains(":")) {
+                continue;
+            }
+
             Peer currentPeer = parsePeer(peer);
             if (!validatePeer(currentPeer)) {
                 continue;
             }
             peersAddresses.add(currentPeer);
+        }
+
+        if (peersAddresses.isEmpty()) {
+            throw new PeersParseException("Tracker returned 0 peers");
         }
 
         trackerResponse.setPeers(peersAddresses);

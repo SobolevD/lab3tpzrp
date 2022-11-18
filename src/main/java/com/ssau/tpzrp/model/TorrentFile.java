@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.*;
 
 import static com.ssau.tpzrp.constants.Common.HASH_ENCODER_PYTHON_SCRIPT_FILE_PATH;
+import static com.ssau.tpzrp.constants.TorrentFields.INFO_PIECES;
 
 @Data
 public class TorrentFile {
@@ -25,6 +26,8 @@ public class TorrentFile {
     private String encoding;
     private String infoHash;
     private Map<String, Object> info;
+
+    private int piecesCount;
 
     @SuppressWarnings("unchecked")
     public TorrentFile(String filePath) throws TorrentParseException {
@@ -55,6 +58,9 @@ public class TorrentFile {
 
     public TorrentFile(String filePath, Set<String> acceptableProtocols) throws TorrentParseException {
         this(filePath);
+
+        System.out.println("[DEBUG] Protocol supports: " + acceptableProtocols);
+
         List<String> acceptableTrackerUrls = new ArrayList<>();
         for (String trackerUrl : this.announcesUrls) {
             for (String acceptableProtocol : acceptableProtocols) {
@@ -88,6 +94,12 @@ public class TorrentFile {
             }
         }
 
+        if (Objects.isNull(this.announcesUrls)) {
+            this.announcesUrls = List.of(this.announceUrl);
+        }
+
+        System.out.println("Trackers found: " + this.announcesUrls);
+
         Object comment = map.get(TorrentFields.COMMENT);
         this.comment = Objects.isNull(comment) ? null : comment.toString();
 
@@ -104,5 +116,8 @@ public class TorrentFile {
             throw new TorrentParseException(errorMessage);
         }
         this.info = (Map<String, Object>)info;
+
+        Object pieces = this.info.get(INFO_PIECES);
+        this.piecesCount = ((String)pieces).length() / 20;
     }
 }

@@ -13,4 +13,9 @@ public class Peer {
         String[] ipParts = host.split("\\.");
         return ipParts[partNum - 1];
     }
+
+    @Override
+    public String toString() {
+        return String.format("%s:%s", host, port);
+    }
 }
